@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <title>약수와 배수 빈출 (2)</title>
+  <title>약수와 배수 빈출(1)</title>
   <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" defer></script>
   <style>
     body {
@@ -49,7 +49,7 @@
 <body>
   <!-- 시작 화면 -->
   <div id="startScreen">
-    <h1>약수와 배수 빈출 (2)</h1>
+    <h1>약수와 배수 빈출(1)</h1>
     <label>이름: <input type="text" id="playerName" /></label><br>
     <label>난이도:
       <select id="difficulty">
@@ -573,7 +573,7 @@
     document.getElementById('sendScoreButton').addEventListener('click', function() {
       const name = document.getElementById('playerName').value.trim();
       const elapsed = Math.floor((Date.now() - overallStartTime) / 1000);
-      saveData("단항식 빈출 (2)", name, score, elapsed);
+      saveData("약수와 배수 빈출(1)", name, score, elapsed);
     });
   </script>
 </body>
