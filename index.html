@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>배수와 약수 빈출 (2)</title>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" defer></script>
+  <style>
+    body {
+      background: #fff;
+      color: #000;
+      font-family: Arial, sans-serif;
+      margin: 20px;
+    }
+    .hidden {
+      display: none;
+    }
+    .energy-bar {
+      width: 100%;
+      height: 20px;
+      background: #ccc;
+      margin: 10px 0;
+    }
+    .energy {
+      height: 100%;
+      background: #000;
+      width: 100%;
+    }
+    button {
+      margin: 5px;
+      padding: 5px 10px;
+      background: #fff;
+      color: #000;
+      border: 1px solid #000;
+      cursor: pointer;
+    }
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    pre {
+      background: #fff;
+      color: #000;
+      border: 1px solid #000;
+      padding: 10px;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <!-- 시작 화면 -->
+  <div id="startScreen">
+    <h1>단항식 빈출 (2)</h1>
+    <label>이름: <input type="text" id="playerName" /></label><br>
+    <label>난이도:
+      <select id="difficulty">
+        <option value="최상">최상</option>
+        <option value="상">상</option>
+        <option value="중">중</option>
+        <option value="하">하</option>
+      </select>
+    </label><br>
+    <button id="startButton">게임 시작</button>
+  </div>
+
+  <!-- 게임 화면 -->
+  <div id="gameScreen" class="hidden">
+    <div>
+      <span id="livesDisplay">남은 기회: 3</span>
+      <span id="scoreDisplay" style="margin-left: 20px;">점수: 0</span>
+      <span id="overallTime" style="margin-left: 20px;">전체 시간: 0초</span>
+    </div>
+    <div class="energy-bar">
+      <div id="energy" class="energy"></div>
+    </div>
+    <div id="questionContainer"></div>
+    <div id="feedback"></div>
+    <button id="nextButton" disabled>다음 문제</button>
+  </div>
+
+  <!-- 게임 종료 화면 -->
+  <div id="gameOverScreen" class="hidden">
+    <h2>게임 종료</h2>
+    <p id="finalScore"></p>
+    <button id="sendScoreButton">점수전송</button>
+    <pre id="response"></pre>
+  </div>
+
+  <script>
+    // 데이터 전송 함수 (제공된 코드)
+    function saveData(game, name, score, elapsedTime) {
+        const FUNCTION_URL = "https://us-central1-record-f420d.cloudfunctions.net/report";
+
+        const requestData = {
+            game,
+            name,
+            score: parseInt(score, 10),
+            elapsedTime: parseInt(elapsedTime, 10)
+        };
+
+        try {
+            const response = fetch(FUNCTION_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestData)
+            });
+
+            const responseData = response.json();
+
+            if (response.ok) {
+                document.getElementById('response').innerText = 
+                    `성공: ${JSON.stringify(responseData, null, 2)}`;
+            } else {
+                document.getElementById('response').innerText = 
+                    `오류: ${JSON.stringify(responseData, null, 2)}`;
+            }
+        } catch (error) {
+            console.error('요청 실패:', error);
+            document.getElementById('response').innerText = 
+                `네트워크 오류: ${error.message}`;
+        }
+    }
+
+    // 배열 섞기 함수
+    function shuffleArray(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+      return array;
+    }
+
+    // 문제 데이터 (유형별 5문제씩, 총 25문항)
+    const questions = [
+      // [유형 A] 두 자연수의 최대공약수가 주어졌을 때, 공약수가 아닌 보기 선택 문제
+      {
+        question: "두 자연수 \\(a,\\; b\\)의 최대공약수가 \\(18\\)일 때, 다음 보기 중에서 \\(a,\\; b\\)의 공약수가 아닌 것을 모두 고르시오.",
+        choices: [
+          { text: "\\(2,\\; 2\\times3\\)", correct: false },
+          { text: "\\(3^3,\\; 2^2\\times3\\)", correct: true },
+          { text: "\\(2,\\; 3^3\\)", correct: false },
+          { text: "\\(2\\times3,\\; 2\\times3^2\\)", correct: false },
+          { text: "\\(2^2\\times3,\\; 2\\times3^2\\)", correct: false }
+        ]
+      },
+      {
+        question: "두 자연수 \\(a,\\; b\\)의 최대공약수가 \\(24\\)일 때, 다음 보기 중에서 \\(a,\\; b\\)의 공약수가 아닌 것을 모두 고르시오.",
+        choices: [
+          { text: "\\(2,\\; 2^2\\)", correct: false },
+          { text: "\\(3,\\; 2\\times3\\)", correct: false },
+          { text: "\\(2^3,\\; 3^2\\)", correct: true },
+          { text: "\\(2^2\\times3,\\; 2\\times3\\)", correct: false },
+          { text: "\\(2^2\\times3,\\; 2^4\\)", correct: false }
+        ]
+      },
+      {
+        question: "두 자연수 \\(a,\\; b\\)의 최대공약수가 \\(30\\)일 때, 다음 보기 중에서 \\(a,\\; b\\)의 공약수가 아닌 것을 모두 고르시오.",
+        choices: [
+          { text: "\\(2,\\; 3\\)", correct: false },
+          { text: "\\(2\\times3,\\; 3\\times5\\)", correct: false },
+          { text: "\\(2^2,\\; 3\\)", correct: false },
+          { text: "\\(2,\\; 5\\)", correct: false },
+          { text: "\\(2^2,\\; 3^2\\)", correct: true }
+        ]
+      },
+      {
+        question: "두 자연수 \\(a,\\; b\\)의 최대공약수가 \\(42\\)일 때, 다음 보기 중에서 \\(a,\\; b\\)의 공약수가 아닌 것을 모두 고르시오.",
+        choices: [
+          { text: "\\(2\\times3,\\; 2\\times7\\)", correct: false },
+          { text: "\\(3,\\; 7\\)", correct: false },
+          { text: "\\(2^2,\\; 7\\)", correct: false },
+          { text: "\\(2\\times3,\\; 3^2\\)", correct: false },
+          { text: "\\(2^2,\\; 3^2\\)", correct: true }
+        ]
+      },
+      {
+        question: "두 자연수 \\(a,\\; b\\)의 최대공약수가 \\(28\\)일 때, 다음 보기 중에서 \\(a,\\; b\\)의 공약수가 아닌 것을 모두 고르시오.",
+        choices: [
+          { text: "\\(2,\\; 7\\)", correct: false },
+          { text: "\\(2^2,\\; 2\\times7\\)", correct: false },
+          { text: "\\(2,\\; 2^3\\)", correct: false },
+          { text: "\\(7,\\; 7^2\\)", correct: false },
+          { text: "\\(2^3,\\; 7^2\\)", correct: true }
+        ]
+      },
+      // [유형 B] 소인수분해 형태의 세 수의 최대공약수 구하기
+      {
+        question: "세 수 \\(2^3\\times5\\), \\(2\\times5^2\\times7\\), \\(2\\times5^3\\times7\\)의 최대공약수를 구하시오.",
+        choices: [
+          { text: "\\(2\\times5\\)", correct: true },
+          { text: "\\(2^3\\times5\\)", correct: false },
+          { text: "\\(2\\times5^2\\)", correct: false },
+          { text: "\\(2^2\\times5\\times7\\)", correct: false },
+          { text: "\\(2\\times5\\times7\\)", correct: false }
+        ]
+      },
+      {
+        question: "세 수 \\(2^2\\times3^3\\), \\(2^3\\times3\\times5\\), \\(2\\times3^2\\times7\\)의 최대공약수를 구하시오.",
+        choices: [
+          { text: "\\(2\\times3\\)", correct: true },
+          { text: "\\(2^2\\times3\\)", correct: false },
+          { text: "\\(2\\times3^2\\)", correct: false },
+          { text: "\\(2^2\\times3^2\\)", correct: false },
+          { text: "\\(2\\times3\\times5\\)", correct: false }
+        ]
+      },
+      {
+        question: "세 수 \\(2^3\\times3^2\\times5\\), \\(2^2\\times3^3\\times7\\), \\(2^4\\times3\\times5\\times7\\)의 최대공약수를 구하시오.",
+        choices: [
+          { text: "\\(2^2\\times3\\)", correct: true },
+          { text: "\\(2^3\\times3\\)", correct: false },
+          { text: "\\(2^2\\times3^2\\)", correct: false },
+          { text: "\\(2^2\\times3\\times5\\)", correct: false },
+          { text: "\\(2\\times3\\)", correct: false }
+        ]
+      },
+      {
+        question: "세 수 \\(2\\times3\\times7\\), \\(2^2\\times3^2\\times7^2\\), \\(2^3\\times7\\)의 최대공약수를 구하시오.",
+        choices: [
+          { text: "\\(2\\times7\\)", correct: true },
+          { text: "\\(2^2\\times7\\)", correct: false },
+          { text: "\\(2\\times3\\times7\\)", correct: false },
+          { text: "\\(2\\times7^2\\)", correct: false },
+          { text: "\\(2^2\\times7^2\\)", correct: false }
+        ]
+      },
+      {
+        question: "세 수 \\(2^2\\times5^2\\), \\(2^3\\times3\\times5\\), \\(2\\times3^2\\times5^3\\)의 최대공약수를 구하시오.",
+        choices: [
+          { text: "\\(2\\times5\\)", correct: true },
+          { text: "\\(2^2\\times5\\)", correct: false },
+          { text: "\\(2\\times5^2\\)", correct: false },
+          { text: "\\(2^2\\times5^2\\)", correct: false },
+          { text: "\\(2\\times3\\times5\\)", correct: false }
+        ]
+      },
+      // [유형 C] 세 수의 공약수 중, 공약수가 아닌 것을 고르기
+      {
+        question: "세 수 \\(72\\), \\(108\\), \\(180\\)의 공약수가 아닌 것은?",
+        choices: [
+          { text: "\\(2\\)", correct: false },
+          { text: "\\(3^2\\)", correct: false },
+          { text: "\\(2\\times3\\)", correct: false },
+          { text: "\\(2^3\\times3\\)", correct: true },
+          { text: "\\(2^2\\times3^2\\)", correct: false }
+        ]
+      },
+      {
+        question: "세 수 \\(60\\), \\(90\\), \\(150\\)의 공약수가 아닌 것은?",
+        choices: [
+          { text: "\\(2\\)", correct: false },
+          { text: "\\(3\\)", correct: false },
+          { text: "\\(2\\times3\\)", correct: false },
+          { text: "\\(2^2\\)", correct: true },
+          { text: "\\(5\\)", correct: false }
+        ]
+      },
+      {
+        question: "세 수 \\(84\\), \\(126\\), \\(210\\)의 공약수가 아닌 것은?",
+        choices: [
+          { text: "\\(2\\)", correct: false },
+          { text: "\\(3\\)", correct: false },
+          { text: "\\(2\\times7\\)", correct: false },
+          { text: "\\(3^2\\)", correct: true },
+          { text: "\\(2\\times3\\)", correct: false }
+        ]
+      },
+      {
+        question: "세 수 \\(96\\), \\(144\\), \\(240\\)의 공약수가 아닌 것은?",
+        choices: [
+          { text: "\\(2^3\\)", correct: false },
+          { text: "\\(3\\)", correct: false },
+          { text: "\\(2\\times3\\)", correct: false },
+          { text: "\\(2^5\\)", correct: true },
+          { text: "\\(2^4\\times3\\)", correct: false }
+        ]
+      },
+      {
+        question: "세 수 \\(84\\), \\(126\\), \\(168\\)의 공약수가 아닌 것은?",
+        choices: [
+          { text: "\\(2\\)", correct: false },
+          { text: "\\(2\\times3\\)", correct: false },
+          { text: "\\(3\\times7\\)", correct: false },
+          { text: "\\(2^2\\)", correct: true },
+          { text: "\\(2\\times3\\times7\\)", correct: false }
+        ]
+      },
+      // [유형 D] 세 수의 최대공약수가 주어진 상황에서 \\(N\\)의 값으로 부적절한 것을 고르기
+      {
+        question: "세 수 \\(36\\), \\(N\\), \\(108\\)의 최대공약수가 \\(18\\)일 때, \\(N\\)의 값으로 적당하지 않은 것은?",
+        choices: [
+          { text: "\\(18\\)", correct: false },
+          { text: "\\(54\\)", correct: false },
+          { text: "\\(72\\)", correct: true },
+          { text: "\\(90\\)", correct: false },
+          { text: "\\(126\\)", correct: false }
+        ]
+      },
+      {
+        question: "세 수 \\(48\\), \\(N\\), \\(120\\)의 최대공약수가 \\(24\\)일 때, \\(N\\)의 값으로 적당하지 않은 것은?",
+        choices: [
+          { text: "\\(24\\)", correct: false },
+          { text: "\\(36\\)", correct: true },
+          { text: "\\(72\\)", correct: false },
+          { text: "\\(96\\)", correct: false },
+          { text: "\\(120\\)", correct: false }
+        ]
+      },
+      {
+        question: "세 수 \\(30\\), \\(N\\), \\(90\\)의 최대공약수가 \\(30\\)일 때, \\(N\\)의 값으로 적당하지 않은 것은?",
+        choices: [
+          { text: "\\(30\\)", correct: false },
+          { text: "\\(45\\)", correct: true },
+          { text: "\\(60\\)", correct: false },
+          { text: "\\(90\\)", correct: false },
+          { text: "\\(150\\)", correct: false }
+        ]
+      },
+      {
+        question: "세 수 \\(40\\), \\(N\\), \\(100\\)의 최대공약수가 \\(20\\)일 때, \\(N\\)의 값으로 적당하지 않은 것은?",
+        choices: [
+          { text: "\\(20\\)", correct: false },
+          { text: "\\(40\\)", correct: false },
+          { text: "\\(50\\)", correct: true },
+          { text: "\\(60\\)", correct: false },
+          { text: "\\(100\\)", correct: false }
+        ]
+      },
+      {
+        question: "세 수 \\(54\\), \\(N\\), \\(90\\)의 최대공약수가 \\(18\\)일 때, \\(N\\)의 값으로 적당하지 않은 것은?",
+        choices: [
+          { text: "\\(18\\)", correct: false },
+          { text: "\\(27\\)", correct: true },
+          { text: "\\(54\\)", correct: false },
+          { text: "\\(90\\)", correct: false },
+          { text: "\\(126\\)", correct: false }
+        ]
+      },
+      // [유형 E] 소인수분해 형태의 세 수의 최소공배수 구하기
+      {
+        question: "세 수 \\(2^2\\times3\\times5\\), \\(2^3\\times3^2\\), \\(3\\times5^2\\)의 최소공배수를 구하시오.",
+        choices: [
+          { text: "\\(2^3\\times3^2\\times5^2\\)", correct: true },
+          { text: "\\(2^2\\times3^2\\times5^2\\)", correct: false },
+          { text: "\\(2^3\\times3\\times5^2\\)", correct: false },
+          { text: "\\(2^3\\times3^2\\times5\\)", correct: false },
+          { text: "\\(2^2\\times3\\times5\\)", correct: false }
+        ]
+      },
+      {
+        question: "세 수 \\(2\\times3^2\\times7\\), \\(2^2\\times3\\times7^2\\), \\(2^3\\times3^2\\)의 최소공배수를 구하시오.",
+        choices: [
+          { text: "\\(2^3\\times3^2\\times7^2\\)", correct: true },
+          { text: "\\(2^2\\times3^2\\times7^2\\)", correct: false },
+          { text: "\\(2^3\\times3\\times7^2\\)", correct: false },
+          { text: "\\(2^3\\times3^2\\times7\\)", correct: false },
+          { text: "\\(2^2\\times3\\times7\\)", correct: false }
+        ]
+      },
+      {
+        question: "세 수 \\(2^2\\times3\\), \\(2\\times3^2\\times5\\), \\(2\\times5^2\\)의 최소공배수를 구하시오.",
+        choices: [
+          { text: "\\(2^2\\times3^2\\times5^2\\)", correct: true },
+          { text: "\\(2\\times3^2\\times5^2\\)", correct: false },
+          { text: "\\(2^2\\times3\\times5^2\\)", correct: false },
+          { text: "\\(2^2\\times3^2\\times5\\)", correct: false },
+          { text: "\\(2\\times3\\times5\\)", correct: false }
+        ]
+      },
+      {
+        question: "세 수 \\(2^3\\times3\\), \\(2^2\\times3\\times7\\), \\(2\\times3^2\\times7\\)의 최소공배수를 구하시오.",
+        choices: [
+          { text: "\\(2^3\\times3^2\\times7\\)", correct: true },
+          { text: "\\(2^2\\times3^2\\times7\\)", correct: false },
+          { text: "\\(2^3\\times3\\times7\\)", correct: false },
+          { text: "\\(2^3\\times3^2\\)", correct: false },
+          { text: "\\(2^2\\times3\\times7\\)", correct: false }
+        ]
+      },
+      {
+        question: "세 수 \\(3\\times5\\), \\(2\\times3\\), \\(2\\times5\\)의 최소공배수를 구하시오.",
+        choices: [
+          { text: "\\(2\\times3\\times5\\)", correct: true },
+          { text: "\\(2\\times5\\)", correct: false },
+          { text: "\\(3\\times5\\)", correct: false },
+          { text: "\\(2\\times3\\)", correct: false },
+          { text: "\\(2^2\\times3\\times5\\)", correct: false }
+        ]
+      }
+    ];
+
+    let currentQuestionIndex = 0;
+    let currentQuestion = null;
+    let score = 0;
+    let lives = 3;
+    let difficulty = null;
+    let timeLimit = null; // 밀리초 단위
+    let questionTimer = null;
+    let overallStartTime = null;
+    let overallTimerInterval = null;
+
+    const scoreDisplay = document.getElementById('scoreDisplay');
+    const livesDisplay = document.getElementById('livesDisplay');
+    const overallTimeDisplay = document.getElementById('overallTime');
+    const energyBar = document.getElementById('energy');
+    const questionContainer = document.getElementById('questionContainer');
+    const feedbackDiv = document.getElementById('feedback');
+    const nextButton = document.getElementById('nextButton');
+
+    document.getElementById('startButton').addEventListener('click', startGame);
+
+    function startGame() {
+      const name = document.getElementById('playerName').value.trim();
+      if (!name) {
+        alert("이름을 입력하세요.");
+        return;
+      }
+      difficulty = document.getElementById('difficulty').value;
+      if (difficulty === "최상") {
+        timeLimit = 20000;
+      } else if (difficulty === "상") {
+        timeLimit = 30000;
+      } else if (difficulty === "중") {
+        timeLimit = 40000;
+      } else {
+        timeLimit = null;
+      }
+      // 문제당 배점: 최상 20점, 상 15점, 중 13점, 하 10점
+
+      document.getElementById('startScreen').classList.add('hidden');
+      document.getElementById('gameScreen').classList.remove('hidden');
+
+      shuffleArray(questions);
+      currentQuestionIndex = 0;
+      score = 0;
+      lives = 3;
+      updateScore();
+      updateLives();
+
+      overallStartTime = Date.now();
+      overallTimerInterval = setInterval(updateOverallTime, 1000);
+
+      loadNextQuestion();
+    }
+
+    function updateOverallTime() {
+      const elapsed = Date.now() - overallStartTime;
+      overallTimeDisplay.innerText = "전체 시간: " + Math.floor(elapsed / 1000) + "초";
+    }
+
+    function updateScore() {
+      scoreDisplay.innerText = "점수: " + score;
+    }
+
+    function updateLives() {
+      livesDisplay.innerText = "남은 기회: " + lives;
+    }
+
+    function loadNextQuestion() {
+      feedbackDiv.innerHTML = "";
+      nextButton.disabled = true;
+      if (currentQuestionIndex < questions.length) {
+        currentQuestion = questions[currentQuestionIndex];
+        currentQuestionIndex++;
+      } else {
+        currentQuestion = questions[Math.floor(Math.random() * questions.length)];
+      }
+      displayQuestion(currentQuestion);
+      if (timeLimit !== null) {
+        startTimer();
+      } else {
+        resetEnergyBar();
+      }
+      MathJax.typeset();
+    }
+
+    function displayQuestion(questionObj) {
+      questionContainer.innerHTML = "";
+      const p = document.createElement('p');
+      p.innerHTML = questionObj.question;
+      questionContainer.appendChild(p);
+      const choices = shuffleArray([...questionObj.choices]);
+      choices.forEach(choice => {
+        const btn = document.createElement('button');
+        btn.innerHTML = choice.text;
+        btn.addEventListener('click', function() {
+          if (questionTimer) {
+            clearInterval(questionTimer);
+            questionTimer = null;
+          }
+          checkAnswer(choice);
+        });
+        questionContainer.appendChild(btn);
+      });
+    }
+
+    function checkAnswer(selectedChoice) {
+      const buttons = questionContainer.getElementsByTagName('button');
+      for (let btn of buttons) {
+        btn.disabled = true;
+      }
+      if (selectedChoice.correct) {
+        feedbackDiv.innerHTML = "<p>정답입니다.</p>";
+        let points = 0;
+        if (difficulty === "최상") points = 20;
+        else if (difficulty === "상") points = 15;
+        else if (difficulty === "중") points = 13;
+        else points = 10;
+        score += points;
+        updateScore();
+      } else {
+        feedbackDiv.innerHTML = "<p>오답입니다. 정답: " + getCorrectAnswerText(currentQuestion.choices) + "</p>";
+        lives--;
+        updateLives();
+        if (lives === 0) {
+          gameOver();
+          return;
+        }
+      }
+      nextButton.disabled = false;
+      MathJax.typeset();
+    }
+
+    function getCorrectAnswerText(choices) {
+      for (let choice of choices) {
+        if (choice.correct) return choice.text;
+      }
+      return "";
+    }
+
+    function startTimer() {
+      let startTime = Date.now();
+      energyBar.style.width = "100%";
+      questionTimer = setInterval(function() {
+        let elapsed = Date.now() - startTime;
+        let remaining = timeLimit - elapsed;
+        if (remaining <= 0) {
+          clearInterval(questionTimer);
+          questionTimer = null;
+          feedbackDiv.innerHTML = "<p>시간 초과. 정답: " + getCorrectAnswerText(currentQuestion.choices) + "</p>";
+          lives--;
+          updateLives();
+          nextButton.disabled = false;
+          if (lives === 0) {
+            gameOver();
+          }
+        }
+        let percent = Math.max((remaining / timeLimit) * 100, 0);
+        energyBar.style.width = percent + "%";
+      }, 100);
+    }
+
+    function resetEnergyBar() {
+      energyBar.style.width = "100%";
+    }
+
+    nextButton.addEventListener('click', function() {
+      if (questionTimer) {
+        clearInterval(questionTimer);
+        questionTimer = null;
+      }
+      loadNextQuestion();
+    });
+
+    function gameOver() {
+      clearInterval(overallTimerInterval);
+      document.getElementById('gameScreen').classList.add('hidden');
+      document.getElementById('gameOverScreen').classList.remove('hidden');
+      document.getElementById('finalScore').innerText = "최종 점수: " + score;
+    }
+
+    document.getElementById('sendScoreButton').addEventListener('click', function() {
+      const name = document.getElementById('playerName').value.trim();
+      const elapsed = Math.floor((Date.now() - overallStartTime) / 1000);
+      saveData("단항식 빈출 (2)", name, score, elapsed);
+    });
+  </script>
+</body>
+</html>
